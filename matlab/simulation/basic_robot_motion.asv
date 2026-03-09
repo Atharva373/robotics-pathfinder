@@ -1,0 +1,61 @@
+clc 
+clear
+close all
+
+dt = 0.1;
+T = 10;
+
+time = 0:dt:T
+
+%Initital Positional State
+x0 = 0;
+y0 = 0;
+theta0 = 2; 
+
+current_pos = [x0;y0;-(180-theta0)];
+
+%Initial Control Inputs
+u = [0., 0];
+
+trajectory = zeros(3,length(time));
+trajectory(:, 1) = current_pos;
+R = zeros(1, length(time));
+
+for k = 1 : length(time)-1
+
+    current_pos = robot_step(current_pos, u, dt);
+    R(k+1) = sqrt(current_pos(1)^2 + current_pos(2)^2);
+
+    trajectory(:, k+1) = current_pos;
+    
+
+end
+
+disp('R = ')
+disp(R)
+disp('trajectory = ');
+disp(trajectory);
+
+x_plot = trajectory(1,:);
+y_plot = trajectory(2,:);
+
+%plotting y pos wrt x pos
+figure
+plot(x_plot,y_plot,'LineWidth',2)
+grid on
+axis equal
+
+xlabel('x position')
+ylabel('y position')
+title('Robot position')
+
+%Plotting resultant pos wrt time
+figure
+plot(time,R,"ro -", 'LineWidth',1)
+grid on
+axis equal
+
+xlabel('time')
+ylabel('Resultant position')
+title('Robot Trajectory with time')
+
