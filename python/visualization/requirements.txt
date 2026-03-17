@@ -1,0 +1,7 @@
+numpy
+matplotlib
+pygame
+networkx
+shapely
+heapdict
+scipy
