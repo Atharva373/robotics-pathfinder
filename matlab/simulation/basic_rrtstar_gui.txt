@@ -1,0 +1,182 @@
+function basic_rrtstar_gui
+% CLEAN FINAL VERSION — BASIC RRT* (NO SCOPE BUGS)
+
+clc; close all;
+
+app.mapSize = 20;
+app.numObstacles = 15;
+app.stepSize = 1.0;
+app.maxIterations = 1500;
+app.robotRadius = 0.3;
+
+app.start = [];
+app.goal = [];
+app.obstacles = generateObstacles();
+
+figure('Name','RRT* Planner');
+app.ax = axes; hold on; grid on; axis equal;
+xlim([0 app.mapSize]); ylim([0 app.mapSize]);
+
+set(gcf,'WindowButtonDownFcn',@clickCallback);
+
+uicontrol('Style','pushbutton','String','Plan Path',...
+    'Units','normalized','Position',[0.8 0.01 0.15 0.05],...
+    'Callback',@planPath);
+
+plotScene();
+
+%% CLICK HANDLER
+function clickCallback(~,~)
+    pt = get(app.ax,'CurrentPoint');
+    p = pt(1,1:2);
+
+    if isempty(app.start)
+        app.start = p;
+        disp('Start selected');
+    elseif isempty(app.goal)
+        app.goal = p;
+        disp('Goal selected');
+    else
+        app.start = p;
+        app.goal = [];
+    end
+    plotScene();
+end
+
+%% PLOT
+function plotScene()
+    cla; hold on;
+    axis([0 app.mapSize 0 app.mapSize]);
+
+    % obstacles
+    for i=1:length(app.obstacles)
+        c = app.obstacles(i).c;
+        r = app.obstacles(i).r;
+        rectangle('Position',[c(1)-r c(2)-r 2*r 2*r],'Curvature',[1 1],'FaceColor',[0.3 0.3 0.3]);
+    end
+
+    if ~isempty(app.start)
+        plot(app.start(1),app.start(2),'go','MarkerFaceColor','g');
+    end
+
+    if ~isempty(app.goal)
+        plot(app.goal(1),app.goal(2),'ro','MarkerFaceColor','r');
+    end
+end
+
+%% PLAN PATH
+function planPath(~,~)
+    if isempty(app.start) || isempty(app.goal)
+        disp('Select start and goal'); return;
+    end
+
+    [path, nodePos, parent] = rrtStar(app.start, app.goal);
+
+    plotScene();
+
+    % draw tree
+    for i=2:size(nodePos,1)
+        p = parent(i);
+        plot([nodePos(i,1) nodePos(p,1)], [nodePos(i,2) nodePos(p,2)], 'b');
+    end
+
+    % draw path
+    if ~isempty(path)
+        plot(path(:,1), path(:,2),'r','LineWidth',2);
+    else
+        disp('No path found');
+    end
+end
+
+%% RRT*
+function [path, nodePos, parent] = rrtStar(start, goal)
+
+nodePos = zeros(app.maxIterations,2);
+parent = zeros(app.maxIterations,1);
+cost = inf(app.maxIterations,1);
+
+nodePos(1,:) = start;
+cost(1)=0;
+n=1;
+
+for i=1:app.maxIterations
+
+    qRand = rand(1,2)*app.mapSize;
+
+    % nearest
+    d = vecnorm(nodePos(1:n,:) - qRand,2,2);
+    [~,idx] = min(d);
+    qNear = nodePos(idx,:);
+
+    % steer
+    dir = qRand - qNear;
+    qNew = qNear + app.stepSize*dir/norm(dir);
+
+    if ~collisionFree(qNear,qNew)
+        continue;
+    end
+
+    n = n+1;
+    nodePos(n,:) = qNew;
+    parent(n) = idx;
+    cost(n) = cost(idx) + norm(qNew-qNear);
+
+    % rewire
+    for j=1:n-1
+        if norm(nodePos(j,:)-qNew)<2
+            newCost = cost(n)+norm(nodePos(j,:)-qNew);
+            if newCost<cost(j) && collisionFree(qNew,nodePos(j,:))
+                parent(j)=n;
+                cost(j)=newCost;
+            end
+        end
+    end
+
+    % goal check
+    if norm(qNew-goal)<1
+        path = backtrack(nodePos,parent,n,goal);
+        return;
+    end
+end
+
+path = [];
+nodePos = nodePos(1:n,:);
+parent = parent(1:n);
+end
+
+%% BACKTRACK
+function path = backtrack(nodePos,parent,idx,goal)
+path = goal;
+while idx>0
+    path = [nodePos(idx,:); path]; %#ok
+    idx = parent(idx);
+end
+end
+
+%% COLLISION
+function tf = collisionFree(p1,p2)
+tf = true;
+for i=1:length(app.obstacles)
+    c = app.obstacles(i).c;
+    r = app.obstacles(i).r + app.robotRadius;
+
+    d = p2-p1;
+    t = max(0,min(1, dot(c-p1,d)/dot(d,d)));
+    proj = p1 + t*d;
+
+    if norm(proj-c)<r
+        tf=false; return;
+    end
+end
+end
+
+%% OBSTACLES
+function obs = generateObstacles()
+obs = struct('c',{},'r',{});
+for i=1:app.numObstacles
+    obs(i).c = rand(1,2)*app.mapSize;
+    obs(i).r = 0.5 + rand;
+end
+end
+
+end

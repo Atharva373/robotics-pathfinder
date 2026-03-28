@@ -2,8 +2,8 @@ clc
 clear
 close all
 
-dt = 0.1;
-T = 5;
+dt = 0.05;
+T = 20;
 
 time = 0:dt:T
 
@@ -18,8 +18,8 @@ current_pos = [x0;y0;(theta0)];
 
 %Initial Control Inputs
 
-v0 = 1;
-omega_deg = 45;   % degrees/sec , Pos Values: CCW
+v0 = 10;
+omega_deg = 90;   % degrees/sec , Pos Values: CCW
 
 omega = deg2rad(omega_deg); 
 
